@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>基金实时监控</title>
+<script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:20px;background:#f5f7fa;font-family:system-ui}
+.container{max-width:1200px;margin:0 auto}
+.card{background:white;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 10px #0000000a}
+.grid{display:grid;grid-template-columns:1.2fr 0.8fr 0.8fr 0.8fr 0.8fr 1.2fr;gap:8px;padding:10px 0;border-bottom:1px solid #eee}
+.head{font-weight:600}
+.up{color:red}
+.down{color:green}
+.dd{color:#666}
+.profit{color:#ff4d4f}
+.chart{width:100%;height:320px;margin:20px 0}
+.stocks{font-size:12px;color:#666;margin-top:4px}
+.time{color:#999;font-size:13px}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="card">
+<h2>基金实时监控</h2>
+<div id="table"></div>
+<div class="time" id="time"></div>
+</div>
+
+<div class="card">
+<h3>净值走势</h3>
+<div id="chart1" class="chart"></div>
+</div>
+
+<div class="card">
+<h3>主力资金流向</h3>
+<div id="chart2" class="chart"></div>
+</div>
+</div>
+
+<script>
+let c1,c2;
+window.onload=init;
+
+async function init(){
+    const r=await fetch('./data/history.json');
+    const hist=await r.json();
+    if(!hist.length)return;
+    const last=hist.at(-1);
+    document.getElementById('time').innerText='更新：'+last.time;
+    renderTable(last.funds);
+    renderCharts(hist);
+}
+
+function renderTable(funds){
+    let h=`<div class="grid head">
+        <div>基金</div><div>估值</div><div>涨跌</div><div>收益</div><div>回撤</div><div>主力资金&重仓</div>
+    </div>`;
+    funds.forEach(f=>{
+        if(f.error)return;
+        const c=f.change>0?'up':'down';
+        const pf=f.profit;
+        h+=`
+        <div class="grid">
+            <div>${f.code} ${f.name}</div>
+            <div>${f.gz.toFixed(3)}</div>
+            <div class="${c}">${f.change}%</div>
+            <div class="profit">${pf.hold?pf.profit+'元':'--'}</div>
+            <div class="dd">${f.drawdown}%</div>
+            <div>
+                <div class="${f.flow.main_net>0?'up':'down'}">
+                    ${f.flow.main_net}万 ${f.flow.style}
+                </div>
+                <div class="stocks">${f.stocks.slice(0,3).join(' ')}</div>
+            </div>
+        </div>`;
+    });
+    document.getElementById('table').innerHTML=h;
+}
+
+function renderCharts(hist){
+    const ts=hist.map(x=>x.time);
+    const fs=hist[0].funds.filter(x=>!x.error);
+
+    c1=echarts.init(document.getElementById('chart1'));
+    c1.setOption({
+        tooltip:{trigger:'axis'},grid:{left:10,right:10},
+        xAxis:{data:ts},yAxis:{name:'净值'},
+        series:fs.map(f=>({
+            name:f.name,type:'line',smooth:true,
+            data:hist.map(h=>{
+                const fund=h.funds.find(x=>x.code===f.code);
+                return fund?fund.gz:null
+            })
+        }))
+    });
+
+    c2=echarts.init(document.getElementById('chart2'));
+    c2.setOption({
+        tooltip:{trigger:'axis'},grid:{left:10,right:10},
+        xAxis:{data:ts},yAxis:{name:'万元'},
+        series:fs.map(f=>({
+            name:f.name,type:'bar',
+            data:hist.map(h=>{
+                const fund=h.funds.find(x=>x.code===f.code);
+                return fund?fund.flow.main_net:0
+            })
+        }))
+    });
+}
+
+window.addEventListener('resize',()=>{
+    c1?.resize();c2?.resize();
+});
+</script>
+</body>
+</html>
