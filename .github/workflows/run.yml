@@ -1,14 +1,13 @@
-# 基金监控自动运行任务（小白零错误版，已修复所有报错+警告）
 name: Fund Monitor
 
-# 触发条件：手动触发 + 交易日9:00-15:00每5分钟自动跑
+# 触发条件：手动触发 + 交易日9:00-15:00每5分钟自动运行
 on:
-  workflow_dispatch: # 手动触发（你现在点的就是这个）
+  workflow_dispatch:
   schedule:
-    # UTC时间1:00-7:00 = 北京时间9:00-15:00，每5分钟一次
+    # UTC时间1:00-7:00 = 北京时间9:00-15:00，周一到周五
     - cron: '*/5 1-7 * * 1-5'
 
-# 强制用Node.js 24，彻底消除黄色警告
+# 强制Node.js 24，彻底消除黄色弃用警告
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -16,29 +15,24 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      # 1. 拉取你的代码（升级到支持Node24的最新版，无警告）
-      - name: 拉取代码
+      # 1. 拉取代码
+      - name: Checkout code
         uses: actions/checkout@v6
 
-      # 2. 安装Python（升级到支持Node24的最新版，无警告）
-      - name: 安装Python
+      # 2. 安装Python
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11" # 稳定版，不用改
+          python-version: "3.11"
 
-      # 3. 升级pip，避免安装工具包出错
-      - name: 升级pip
+      # 3. 升级pip
+      - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
-      # 4. 安装脚本需要的所有工具包（解决exit code 2的核心！之前漏了这个步骤）
-      - name: 安装工具包
-        run: |
-          pip install requests pandas matplotlib
+      # 4. 安装依赖（只需要requests，精简高效）
+      - name: Install dependencies
+        run: pip install requests
 
-      # 5. 给脚本加执行权限，避免权限报错
-      - name: 给脚本加权限
-        run: chmod +x fund_monitor.py
-
-      # 6. 运行基金监控脚本
-      - name: 运行监控脚本
+      # 5. 运行监控脚本
+      - name: Run fund monitor
         run: python fund_monitor.py
